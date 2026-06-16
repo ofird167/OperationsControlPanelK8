@@ -1,0 +1,25 @@
+# Secrets and Local Configurations
+secrets/
+.env
+
+# Application Logs
+logs/
+*.log
+
+# Python Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Local Persistent Storage
+data/
+
+# Generated Kubernetes Configurations & Temp Rendered Manifests
+*.kubeconfig
+manifests/**/*.yaml
+!manifests/**/*.yaml.tmpl
+
+# Ansible cache and transient files
+.ansible/
+infra/ansible/*.retry

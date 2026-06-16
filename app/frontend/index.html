@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubernetes Cluster Operations Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="glow-bg-secondary"></div>
+
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">⎈</span>
+                <h2>K8s Ops Hub</h2>
+            </div>
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="status-tab">
+                    <span class="nav-icon">📊</span> Status Dashboard
+                </button>
+                <button class="nav-item" data-tab="db-tab">
+                    <span class="nav-icon">💾</span> Database & PVC
+                </button>
+                <button class="nav-item" data-tab="config-tab">
+                    <span class="nav-icon">⚙️</span> Config & Secrets
+                </button>
+                <button class="nav-item" data-tab="diagnostics-tab">
+                    <span class="nav-icon">🧪</span> Diagnostics & Canary
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Environment: <span class="env-badge">On-Premises</span></p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="header-title">
+                    <h1 id="page-title">Operations Control Panel</h1>
+                    <p class="subtitle">Real-time cluster health and deployment verification</p>
+                </div>
+                <div class="connection-status">
+                    <span class="pulse-indicator status-green" id="global-status-dot"></span>
+                    <span id="global-status-text">System Connected</span>
+                </div>
+            </header>
+
+            <!-- Status Tab -->
+            <section id="status-tab" class="tab-content active">
+                <div class="grid-layout">
+                    <div class="card card-wide glow-green">
+                        <h3>Cluster General Status</h3>
+                        <div class="status-grid">
+                            <div class="status-metric">
+                                <span class="metric-label">Ingress Domain</span>
+                                <span class="metric-value text-glow" id="stat-domain">app.local</span>
+                            </div>
+                            <div class="status-metric">
+                                <span class="metric-label">Active Host Pod</span>
+                                <span class="metric-value text-glow" id="stat-pod">-</span>
+                            </div>
+                            <div class="status-metric">
+                                <span class="metric-label">API Gateway Status</span>
+                                <span class="status-badge badge-green" id="stat-api-status">UP</span>
+                            </div>
+                            <div class="status-metric">
+                                <span class="metric-label">Active Node Version</span>
+                                <span class="metric-value" id="stat-version">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Networking & DNS Info</h3>
+                        <p class="description">To resolve this dashboard locally, ensure your hosts file maps your ingress controller IP.</p>
+                        <div class="code-box">
+                            <code id="hosts-code">172.20.0.200  app.local</code>
+                            <button class="copy-btn" onclick="copyHostsText()">Copy</button>
+                        </div>
+                        <div class="alert-box note-box">
+                            <strong>Note:</strong> IP is dynamically allocated by MetalLB L2 Pool.
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Health Summary</h3>
+                        <ul class="health-list">
+                            <li>
+                                <span class="health-name">Backend API</span>
+                                <span class="health-state state-up" id="health-api">Checking...</span>
+                            </li>
+                            <li>
+                                <span class="health-name">PostgreSQL Database</span>
+                                <span class="health-state state-up" id="health-db">Checking...</span>
+                            </li>
+                            <li>
+                                <span class="health-name">StorageClass Allocation</span>
+                                <span class="health-state state-up" id="health-storage">Ready</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Database & Storage Tab -->
+            <section id="db-tab" class="tab-content">
+                <div class="grid-layout">
+                    <div class="card card-wide glow-blue">
+                        <h3>Dynamic Persistence (PV/PVC) Verification</h3>
+                        <p class="description">Write transactions to PostgreSQL. Even if the database pod is terminated, storage persistent claims (via local-path StorageClass mounted to host PC folder) guarantee data persistence.</p>
+                        
+                        <div class="persistence-container">
+                            <div class="visit-display">
+                                <span class="visit-count" id="visit-counter">0</span>
+                                <span class="visit-label">Database Recorded Visits</span>
+                            </div>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" id="btn-visit">Register New Visit</button>
+                                <button class="btn btn-danger" id="btn-reset-visits">Reset Database Table</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Database Details</h3>
+                        <table class="data-table">
+                            <tr>
+                                <td>DB Engine</td>
+                                <td>PostgreSQL 16</td>
+                            </tr>
+                            <tr>
+                                <td>DB Hostname</td>
+                                <td id="db-val-host">-</td>
+                            </tr>
+                            <tr>
+                                <td>DB Database Name</td>
+                                <td id="db-val-name">-</td>
+                            </tr>
+                            <tr>
+                                <td>DB User Privileges</td>
+                                <td id="db-val-user" class="text-warning">-</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h3>Dynamic PVC Mounting</h3>
+                        <p class="description">Storage resides in your local folder. Check target host directory for writes:</p>
+                        <div class="code-box font-small">
+                            <code>/home/devops-user/projects/interview10/data/</code>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Config & Secrets Tab -->
+            <section id="config-tab" class="tab-content">
+                <div class="grid-layout">
+                    <div class="card">
+                        <h3>ConfigMap Values</h3>
+                        <p class="description">ConfigMaps store non-sensitive configuration parameters. The values below are mounted as environment variables in the API Backend Pods.</p>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Variable Name</th>
+                                    <th>Current Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>CONFIG_MAP_VAL</code></td>
+                                    <td id="val-config-map">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h3>Kubernetes Secret Status</h3>
+                        <p class="description">Secrets are base64 encoded strings in etcd. Inside the pod, credentials must be masked and never printed directly to standard logs.</p>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Secret Name</th>
+                                    <th>Status</th>
+                                    <th>Value (Masked)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>db-credentials/password</code></td>
+                                    <td class="text-success" id="val-secret-status">Loaded</td>
+                                    <td class="font-mono">••••••••••••••••••••••••</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Diagnostics & Canary Tab -->
+            <section id="diagnostics-tab" class="tab-content">
+                <div class="grid-layout">
+                    <div class="card card-wide glow-purple">
+                        <h3>Canary Routing Playground</h3>
+                        <p class="description">Verify Ingress canary splitting. Click the button to trigger a batch of 100 requests. We will display the traffic split ratio between <strong>v1-stable</strong> (blue) and <strong>v2-canary</strong> (purple) based on NGINX Ingress rules.</p>
+                        
+                        <div class="canary-dashboard">
+                            <div class="test-controls">
+                                <button class="btn btn-purple" id="btn-run-canary">Trigger 100 Requests</button>
+                                <div id="canary-status" class="test-status-msg">Ready for execution.</div>
+                            </div>
+                            
+                            <div class="split-visualizer">
+                                <div class="split-bar">
+                                    <div class="split-fill fill-stable" id="bar-stable" style="width: 50%;"></div>
+                                    <div class="split-fill fill-canary" id="bar-canary" style="width: 50%;"></div>
+                                </div>
+                                <div class="split-labels">
+                                    <span class="label-stable">v1-stable: <strong id="lbl-stable">50%</strong></span>
+                                    <span class="label-canary">v2-canary: <strong id="lbl-canary">50%</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Canary Deployment Spec</h3>
+                        <table class="data-table">
+                            <tr>
+                                <td>Canary Weight</td>
+                                <td>20%</td>
+                            </tr>
+                            <tr>
+                                <td>Routing Annotations</td>
+                                <td class="font-mono text-glow">nginx.ingress.kubernetes.io/canary</td>
+                            </tr>
+                            <tr>
+                                <td>Target backend-canary</td>
+                                <td>Active (v2-canary)</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h3>Load Test Status</h3>
+                        <p class="description">Simulated backend throughput. Standard alerting rules monitor request latencies and rate anomalies.</p>
+                        <div class="metric-ring-container">
+                            <div class="metric-box">
+                                <span class="metric-label">HTTP Latency</span>
+                                <span class="metric-value font-mono">1.2ms</span>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-label">Alerting Rules</span>
+                                <span class="status-badge badge-green">OK</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

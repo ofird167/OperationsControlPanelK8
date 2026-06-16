@@ -1,0 +1,96 @@
+---
+- name: Install Python on all nodes first
+  hosts: k8s_cluster
+  gather_facts: no
+  tasks:
+    - name: Bootstrap python3 inside containers
+      raw: apt-get update && apt-get install -y python3
+      changed_when: false
+
+- name: Common Setup for all Kubernetes Nodes
+  hosts: k8s_cluster
+  gather_facts: yes
+  tasks:
+    - name: Ensure required dependencies are installed
+      apt:
+        name:
+          - curl
+          - ca-certificates
+          - iptables
+        state: present
+        update_cache: yes
+
+    - name: Download k3s binary
+      get_url:
+        url: https://github.com/k3s-io/k3s/releases/download/v1.30.0%2Bk3s1/k3s
+        dest: /usr/local/bin/k3s
+        mode: '0755'
+
+- name: Bootstrap Control Plane Node
+  hosts: control_plane
+  gather_facts: no
+  tasks:
+    - name: Check if k3s server is already bootstrapped
+      stat:
+        path: /etc/rancher/k3s/k3s.yaml
+      register: k3s_yaml
+
+    - name: Start k3s server in background if not running
+      shell: |
+        nohup k3s server --disable traefik --disable local-storage --write-kubeconfig-mode 644 --snapshotter=native > /var/log/k3s.log 2>&1 &
+      when: not k3s_yaml.stat.exists
+
+    - name: Wait for k3s server to generate kubeconfig
+      wait_for:
+        path: /etc/rancher/k3s/k3s.yaml
+        state: present
+        timeout: 60
+
+    - name: Wait for node token to be generated
+      wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+        state: present
+        timeout: 60
+
+    - name: Read control plane node token
+      slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: slurped_token
+
+    - name: Set token fact for worker nodes
+      set_fact:
+        node_token: "{{ slurped_token.content | b64decode | trim }}"
+
+    - name: Read kubeconfig from control plane
+      slurp:
+        src: /etc/rancher/k3s/k3s.yaml
+      register: slurped_kubeconfig
+
+    - name: Find host user UID and GID from workspace directory
+      delegate_to: localhost
+      stat:
+        path: /workspace
+      register: workspace_stat
+
+    - name: Save raw kubeconfig file locally in workspace with host ownership
+      delegate_to: localhost
+      copy:
+        content: "{{ slurped_kubeconfig.content | b64decode | replace('127.0.0.1', '172.20.0.10') }}"
+        dest: /workspace/secrets/k3s.kubeconfig
+        owner: "{{ workspace_stat.stat.uid }}"
+        group: "{{ workspace_stat.stat.gid }}"
+        mode: '0600'
+
+- name: Bootstrap Worker Nodes
+  hosts: workers
+  gather_facts: no
+  tasks:
+    - name: Check if k3s agent is already bootstrapped
+      stat:
+        path: /var/lib/rancher/k3s/agent/client-kubelet.crt
+      register: k3s_agent_cert
+
+    - name: Start k3s agent in background if not running
+      shell: |
+        nohup k3s agent --server https://172.20.0.10:6443 --token "{{ hostvars['k8s-control-plane']['node_token'] }}" --snapshotter=native > /var/log/k3s-agent.log 2>&1 &
+      when: not k3s_agent_cert.stat.exists

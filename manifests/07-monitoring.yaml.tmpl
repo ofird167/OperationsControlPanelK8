@@ -1,0 +1,40 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-alerting-rules
+  namespace: default
+  labels:
+    role: alert-rules
+spec:
+  groups:
+    - name: application-alerts
+      rules:
+        # Alert 1: PostgreSQL database connectivity down
+        - alert: DatabaseDown
+          expr: kube_pod_status_phase{pod=~"postgres-db-.*", phase="Running"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL Database Pod is not running"
+            description: "The PostgreSQL replica has been offline for over 1 minute."
+
+        # Alert 2: API Gateway high response latencies
+        - alert: HighAPILatency
+          expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High 95th percentile API response latency"
+            description: "API response latency on backend services is higher than 500ms for over 2 minutes."
+
+        # Alert 3: Critical Pod CrashLooping
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[5m]) * 60 > 2
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kubernetes pod is crashlooping"
+            description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting frequently."
