@@ -41,7 +41,7 @@ flowchart TB
         end
         
         Socket["/var/run/docker.sock"] <--> Controller
-        KubeConfig["secrets/k3s.kubeconfig"] <--> Host
+        KubeConfig["secrets/k3s.kubeconfig"] <--> APIS
         LocalPersist["data/"] <--> Node1 & Node2 & Node3
     end
 ```
