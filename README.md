@@ -1,5 +1,7 @@
 # On-Premises Kubernetes Cluster Simulation Platform
 
+![Ops Hub Dashboard Screenshot](screenshot.png)
+
 This project provides an automated, production-like, on-premises Kubernetes cluster environment running locally. It simulates physical VM nodes using Docker containers running systemd and leverages Ansible to bootstrap and configure a three-node Kubernetes cluster (1 control plane, 2 worker nodes).
 
 The entire system requires **only Docker** to run on the host. All other operations tools (Ansible, Helm, and kubectl) are self-contained inside a containerized **Controller Environment**, keeping your host clean and independent.
