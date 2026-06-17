@@ -24,15 +24,15 @@ flowchart TB
             end
             
             subgraph Node1 ["Control Plane (k8s-control-plane-1: 172.20.0.10)"]
-                K3sS1[k3s Server (etcd)]
+                K3sS1["k3s Server (etcd)"]
             end
             
             subgraph Node2 ["Control Plane (k8s-control-plane-2: 172.20.0.11)"]
-                K3sS2[k3s Server (etcd)]
+                K3sS2["k3s Server (etcd)"]
             end
             
             subgraph Node3 ["Control Plane (k8s-control-plane-3: 172.20.0.12)"]
-                K3sS3[k3s Server (etcd)]
+                K3sS3["k3s Server (etcd)"]
             end
             
             subgraph Node4 ["Worker 1 (k8s-worker-1: 172.20.0.13)"]
