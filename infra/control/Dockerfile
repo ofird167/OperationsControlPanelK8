@@ -30,6 +30,15 @@ RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/s
     ./get_helm.sh && \
     rm get_helm.sh
 
+# Install Argo Rollouts plugin
+RUN curl -LO https://github.com/argoproj/argo-rollouts/releases/latest/download/kubectl-argo-rollouts-linux-amd64 && \
+    chmod +x ./kubectl-argo-rollouts-linux-amd64 && \
+    mv ./kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+
+# Install Linkerd CLI
+RUN curl --proto '=https' --tlsv1.2 -sSfL https://run.linkerd.io/install | sh && \
+    cp ~/.linkerd2/bin/linkerd /usr/local/bin/linkerd
+
 WORKDIR /workspace
 
 CMD ["bash"]

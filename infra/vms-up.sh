@@ -38,13 +38,17 @@ fi
 # 2. Define nodes and their IPs
 declare -A NODES
 NODES=(
-    ["k8s-control-plane"]="172.20.0.10"
-    ["k8s-worker-1"]="172.20.0.11"
-    ["k8s-worker-2"]="172.20.0.12"
+    ["k8s-control-plane-1"]="172.20.0.10"
+    ["k8s-control-plane-2"]="172.20.0.11"
+    ["k8s-control-plane-3"]="172.20.0.12"
+    ["k8s-worker-1"]="172.20.0.13"
+    ["k8s-worker-2"]="172.20.0.14"
 )
 
 # 3. Create host directories for persistent storage volumes
-mkdir -p "${WORKSPACE_DIR}/data/control-plane"
+mkdir -p "${WORKSPACE_DIR}/data/control-plane-1"
+mkdir -p "${WORKSPACE_DIR}/data/control-plane-2"
+mkdir -p "${WORKSPACE_DIR}/data/control-plane-3"
 mkdir -p "${WORKSPACE_DIR}/data/worker-1"
 mkdir -p "${WORKSPACE_DIR}/data/worker-2"
 
@@ -75,5 +79,5 @@ for node in "${!NODES[@]}"; do
         tail -f /dev/null
 done
 
-echo "[INFO] All 3 node containers started successfully."
+echo "[INFO] All 5 node containers started successfully."
 docker ps -f "name=k8s-"

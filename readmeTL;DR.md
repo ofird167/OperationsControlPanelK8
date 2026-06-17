@@ -14,28 +14,18 @@ cp example.env secrets/.env
 
 ---
 
-### 2. Bootstrap the Cluster
-Run the master bootstrap command. This automatically builds the Ansible controller, boots the simulated VM containers, sets up k3s, compile images, and installs all Kubernetes addons via Helm:
+### 2. Bootstrap the Cluster (All-in-One)
+Run the master `aio.sh` orchestrator. This script will build the Ansible controller, spin up a 3-node High Availability cluster, scan your code for vulnerabilities with Trivy, and install Argo Rollouts, Velero, Linkerd, and your application stack:
 ```bash
-./scripts/bootstrap.sh
+./aio.sh
 ```
 
 ---
 
-### 3. Setup Local DNS Mapping
-Retrieve the allocated IP of the Ingress Controller LoadBalancer:
-```bash
-export KUBECONFIG=secrets/k3s.kubeconfig
-kubectl get svc -n ingress-nginx ingress-nginx-controller
-```
-Add this IP to your host machine's hosts file to map `app.local`:
-*   **Linux/macOS Hosts**:
-    ```bash
-    echo "<INGRESS_IP> app.local" | sudo tee -a /etc/hosts
-    ```
+At the end of the `./aio.sh` run, it will automatically output a PowerShell command for you. Simply copy and paste it into an Administrator PowerShell to map your DNS:
 *   **Windows Hosts (Administrator PowerShell)**:
     ```powershell
-    Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "`n<INGRESS_IP> app.local" -Force
+    Add-Content -Path "C:\Windows\System32\drivers\etc\hosts" -Value "`n<INGRESS_IP> `t app.local"
     ```
 
 ---

@@ -2,9 +2,9 @@
 
 ![Ops Hub Dashboard Screenshot](screenshot.png)
 
-This project provides an automated, production-like, on-premises Kubernetes cluster environment running locally. It simulates physical VM nodes using Docker containers running systemd and leverages Ansible to bootstrap and configure a three-node Kubernetes cluster (1 control plane, 2 worker nodes).
+This project provides an automated, production-like, on-premises Kubernetes cluster environment running locally. It simulates physical VM nodes using Docker containers running systemd and leverages Ansible to bootstrap and configure a **Highly Available (HA) three-node control plane** and two worker nodes.
 
-The entire system requires **only Docker** to run on the host. All other operations tools (Ansible, Helm, and kubectl) are self-contained inside a containerized **Controller Environment**, keeping your host clean and independent.
+The entire system requires **only Docker** to run on the host. All other operations tools (Ansible, Helm, and kubectl) are self-contained inside a containerized **Controller Environment**, keeping your host clean and independent. It includes advanced Datacenter capabilities like Argo Rollouts, Velero Backups, Linkerd Service Mesh, Zero-Trust Network Policies, and Trivy Security Scanning.
 
 ---
 
@@ -23,23 +23,29 @@ flowchart TB
                 Kube[kubectl & Helm]
             end
             
-            subgraph Node1 ["Control Plane (k8s-control-plane: 172.20.0.10)"]
-                K3sS[k3s Server]
-                APIS[kube-apiserver]
+            subgraph Node1 ["Control Plane (k8s-control-plane-1: 172.20.0.10)"]
+                K3sS1[k3s Server (etcd)]
             end
             
-            subgraph Node2 ["Worker 1 (k8s-worker-1: 172.20.0.11)"]
+            subgraph Node2 ["Control Plane (k8s-control-plane-2: 172.20.0.11)"]
+                K3sS2[k3s Server (etcd)]
+            end
+            
+            subgraph Node3 ["Control Plane (k8s-control-plane-3: 172.20.0.12)"]
+                K3sS3[k3s Server (etcd)]
+            end
+            
+            subgraph Node4 ["Worker 1 (k8s-worker-1: 172.20.0.13)"]
                 K3sA1[k3s Agent]
-                Containerd1[containerd]
             end
             
-            subgraph Node3 ["Worker 2 (k8s-worker-2: 172.20.0.12)"]
+            subgraph Node5 ["Worker 2 (k8s-worker-2: 172.20.0.14)"]
                 K3sA2[k3s Agent]
-                Containerd2[containerd]
             end
             
-            Node1 --> Node2
-            Node1 --> Node3
+            Node1 <--> Node2 <--> Node3
+            Node1 --> Node4
+            Node1 --> Node5
         end
         
         Socket["/var/run/docker.sock"] <--> Controller
@@ -51,11 +57,12 @@ flowchart TB
 ### Infrastructure Components
 1.  **Ansible Controller Container (`infra/control/Dockerfile`)**: An isolated environment containing Ansible, Helm, and kubectl that mounts the host's Docker socket and workspace directory to provision and manage the nodes.
 2.  **Simulated VM Nodes (`jrei/systemd-ubuntu:22.04`)**: Run Ubuntu 22.04 with systemd, simulating independent bare-metal machines.
-3.  **K3s Distribution**: Bootstraps the control plane and links worker nodes. Default Traefik and local-storage options are disabled so they can be manually customized.
+3.  **HA K3s Distribution**: Bootstraps a 3-node highly available control plane with embedded etcd.
 4.  **MetalLB (Layer 2 Mode)**: Handles IP allocation for `LoadBalancer` type services within the `172.20.0.200-172.20.0.250` range.
 5.  **NGINX Ingress Controller**: Serves as the reverse proxy, terminating self-signed TLS certificates for `app.local` and routing requests.
-6.  **ArgoCD (GitOps)**: Manages cluster manifests and enforces drift detection and self-healing.
-7.  **Prometheus & Grafana (kube-prometheus-stack)**: Gathers metrics and provides dashboard visualization.
+6.  **ArgoCD & Argo Rollouts**: Manages cluster manifests via GitOps and handles automated progressive delivery / canary rollouts.
+7.  **Service Mesh & Security**: Linkerd mTLS injection, Trivy image scanning, and strict Network Policies for Zero-Trust.
+8.  **Prometheus & Grafana (kube-prometheus-stack)**: Gathers metrics and provides dashboard visualization.
 
 ---
 
@@ -75,11 +82,11 @@ flowchart TB
     *If you have a running HashiCorp Vault instance, populate the `VAULT_ADDR` and `VAULT_TOKEN` variables inside `secrets/.env`. Otherwise, the script will automatically generate secure default credentials.*
 
 2.  **Run Bootstrap**:
-    Run the master bootstrap orchestrator:
+    Run the master AIO (All-in-One) orchestrator:
     ```bash
-    ./scripts/bootstrap.sh
+    ./aio.sh
     ```
-    This script builds the Ansible controller, spins up the containers, installs k3s, compiles the application images, imports them to the node registries, and deploys all configurations.
+    This script builds the Ansible controller, spins up the HA containers, installs k3s, compiles the application images, runs Trivy security scans, imports them to the node registries, and deploys all configurations (Velero, Linkerd, Argo Rollouts).
 
 3.  **Map Domain**:
     Retrieve the Ingress LoadBalancer IP using:

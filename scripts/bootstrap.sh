@@ -45,6 +45,7 @@ INGRESS_DOMAIN="${INGRESS_DOMAIN:-app.local}"
 DB_USER="${DB_USER:-dbadmin}"
 DB_NAME="${DB_NAME:-app_db}"
 DB_PASSWORD="${DB_PASSWORD}"
+GCS_BACKUP_BUCKET="${GCS_BACKUP_BUCKET:-}"
 
 # 2. Render templates
 log_info "Interpolating configuration into manifest templates..."
@@ -82,9 +83,13 @@ log_info "Building frontend and API backend application Docker images..."
 docker build -t backend:latest "${WORKSPACE_DIR}/app/backend" >> "${WORKSPACE_DIR}/logs/build-backend.log" 2>&1
 docker build -t frontend:latest "${WORKSPACE_DIR}/app/frontend" >> "${WORKSPACE_DIR}/logs/build-frontend.log" 2>&1
 
+log_info "Running Trivy Security Scanner on local images..."
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL backend:latest >> "${WORKSPACE_DIR}/logs/trivy-backend.log" 2>&1 || log_info "Trivy found vulnerabilities in backend, see logs/trivy-backend.log"
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL frontend:latest >> "${WORKSPACE_DIR}/logs/trivy-frontend.log" 2>&1 || log_info "Trivy found vulnerabilities in frontend, see logs/trivy-frontend.log"
+
 # 8. Load images directly into k3s container registries
 log_info "Importing application images into all node registries..."
-for node in k8s-control-plane k8s-worker-1 k8s-worker-2; do
+for node in k8s-control-plane-1 k8s-control-plane-2 k8s-control-plane-3 k8s-worker-1 k8s-worker-2; do
     log_info "  Waiting for containerd socket on node: ${node}..."
     docker exec "${node}" bash -c '
         RETRIES=30
@@ -114,7 +119,8 @@ docker run --rm \
     -e INGRESS_DOMAIN="${INGRESS_DOMAIN}" \
     -e DB_USER="${DB_USER}" \
     -e DB_NAME="${DB_NAME}" \
-    -e DB_PASSWORD="${DB_PASSWORD}" \
+    -e DB_PASSWORD="${DB_PASSWORD}"
+GCS_BACKUP_BUCKET="${GCS_BACKUP_BUCKET:-}" \
     k8s-ops-controller \
     bash -c '
         set -euo pipefail
@@ -145,14 +151,39 @@ docker run --rm \
         echo "=== Applying Ingress and Routing configuration ==="
         kubectl apply -f /workspace/manifests/03-ingress.yaml
         
+        echo "=== Bootstrapping Argo Rollouts ==="
+        kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+        kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+        
         echo "=== Deploying Application Stack ==="
         kubectl apply -f /workspace/manifests/05-app-stack.yaml
+        
+        echo "=== Deploying Network Policies ==="
+        kubectl apply -f /workspace/manifests/08-network-policies.yaml
         
         echo "=== Bootstrapping ArgoCD ==="
         kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
         kubectl apply -n argocd --server-side -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
         # Apply GitOps Application configuration
         kubectl apply -f /workspace/manifests/06-gitops.yaml
+        
+        echo "=== Installing Velero for GCS Backups ==="
+        helm repo add vmware-tanzu https://vmware-tanzu.github.io/helm-charts
+        helm repo update
+        helm upgrade --install velero vmware-tanzu/velero \
+            -n velero --create-namespace \
+            --set configuration.provider=gcp \
+            --set configuration.backupStorageLocation.name=default \
+            --set configuration.backupStorageLocation.bucket=${GCS_BACKUP_BUCKET} \
+            --set initContainers[0].name=velero-plugin-for-gcp \
+            --set initContainers[0].image=velero/velero-plugin-for-gcp:v1.9.0 \
+            --set initContainers[0].volumeMounts[0].mountPath=/target \
+            --set initContainers[0].volumeMounts[0].name=plugins
+        
+        echo "=== Installing Linkerd Service Mesh ==="
+        linkerd install --crds | kubectl apply -f -
+        linkerd install | kubectl apply -f -
+        kubectl annotate namespace default linkerd.io/inject=enabled --overwrite
         
         echo "=== Bootstrapping Observability (kube-prometheus-stack) ==="
         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -172,7 +203,7 @@ log_info "Cluster bootstrap and deployment complete!"
 log_info "Retrieve Ingress IP using: kubectl get svc -n ingress-nginx ingress-nginx-controller"
 
 # Output instructions
-INGRESS_IP=$(docker exec k8s-control-plane kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "PENDING")
+INGRESS_IP=$(docker exec k8s-control-plane-1 kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "PENDING")
 
 echo "------------------------------------------------------------"
 echo " BOOTSTRAP COMPLETE"

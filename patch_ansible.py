@@ -1,4 +1,23 @@
----
+import os
+
+inventory_content = """[control_plane]
+k8s-control-plane-1 ansible_connection=docker
+k8s-control-plane-2 ansible_connection=docker
+k8s-control-plane-3 ansible_connection=docker
+
+[workers]
+k8s-worker-1 ansible_connection=docker
+k8s-worker-2 ansible_connection=docker
+
+[k8s_cluster:children]
+control_plane
+workers
+"""
+
+with open('infra/ansible/inventory.ini', 'w') as f:
+    f.write(inventory_content)
+
+playbook_content = """---
 - name: Install Python on all nodes first
   hosts: k8s_cluster
   gather_facts: no
@@ -114,3 +133,9 @@
       shell: |
         nohup k3s agent --server https://172.20.0.10:6443 --token "{{ hostvars['k8s-control-plane-1']['node_token'] }}" --snapshotter=native > /var/log/k3s-agent.log 2>&1 &
       when: not k3s_agent_cert.stat.exists
+"""
+
+with open('infra/ansible/playbook.yml', 'w') as f:
+    f.write(playbook_content)
+    
+print("Successfully updated ansible configuration for HA control plane.")
