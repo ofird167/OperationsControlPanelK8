@@ -30,33 +30,13 @@ if [ -f "${ENV_FILE}" ]; then
 fi
 
 NETWORK_NAME="k8s-net"
-NODE_CONTAINERS=("k8s-control-plane" "k8s-worker-1" "k8s-worker-2")
 
-# 1. Gracefully destroy Kubernetes LoadBalancer and Application resources first
-if [ -f "${WORKSPACE_DIR}/secrets/k3s.kubeconfig" ]; then
-    log_info "Destroying Kubernetes LoadBalancers and Application resources..."
-    export KUBECONFIG="${WORKSPACE_DIR}/secrets/k3s.kubeconfig"
-    
-    # Delete Ingress and services first to free port maps
-    kubectl delete -f "${WORKSPACE_DIR}/manifests/03-ingress.yaml" --ignore-not-found=true >> "${LOG_FILE}" 2>&1 || true
-    kubectl delete -f "${WORKSPACE_DIR}/manifests/05-app-stack.yaml" --ignore-not-found=true >> "${LOG_FILE}" 2>&1 || true
-    
-    # Uninstall Helm charts
-    helm uninstall prometheus -n monitoring >> "${LOG_FILE}" 2>&1 || true
-    helm uninstall ingress-nginx -n ingress-nginx >> "${LOG_FILE}" 2>&1 || true
-    helm uninstall metallb -n metallb-system >> "${LOG_FILE}" 2>&1 || true
-    
-    log_info "Kubernetes resources deleted successfully."
-fi
+# 1. Skip slow kubectl graceful deletions since we are destroying the VMs anyway
+log_info "Bypassing graceful Kubernetes teardown to force-kill VM containers..."
 
 # 2. Stop and remove node containers simulating VMs
 log_info "Stopping and removing node containers..."
-for container in "${NODE_CONTAINERS[@]}"; do
-    if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
-        docker rm -f "${container}" >> "${LOG_FILE}" 2>&1 || true
-        log_info "  Removed container: ${container}"
-    fi
-done
+docker rm -f $(docker ps -a --format '{{.Names}}' | grep '^k8s-') >> "${LOG_FILE}" 2>&1 || true
 
 # 3. Delete custom docker bridge network
 if docker network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then

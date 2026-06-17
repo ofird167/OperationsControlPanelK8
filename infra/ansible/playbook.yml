@@ -81,26 +81,6 @@
         group: "{{ workspace_stat.stat.gid }}"
         mode: '0600'
 
-- name: Bootstrap Additional Control Plane Nodes
-  hosts: k8s-control-plane-2, k8s-control-plane-3
-  gather_facts: no
-  tasks:
-    - name: Check if k3s server is already bootstrapped
-      stat:
-        path: /etc/rancher/k3s/k3s.yaml
-      register: k3s_yaml
-
-    - name: Start additional k3s servers joining the cluster
-      shell: |
-        nohup k3s server --server https://172.20.0.10:6443 --token "{{ hostvars['k8s-control-plane-1']['node_token'] }}" --disable traefik --disable local-storage --write-kubeconfig-mode 644 --snapshotter=native > /var/log/k3s.log 2>&1 &
-      when: not k3s_yaml.stat.exists
-      
-    - name: Wait for k3s server to join
-      wait_for:
-        path: /etc/rancher/k3s/k3s.yaml
-        state: present
-        timeout: 60
-
 - name: Bootstrap Worker Nodes
   hosts: workers
   gather_facts: no

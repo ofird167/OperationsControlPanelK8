@@ -35,15 +35,17 @@ else
     echo "[INFO] Docker network '${NETWORK_NAME}' already exists."
 fi
 
+CONTROL_PLANE_COUNT="${CONTROL_PLANE_COUNT:-3}"
+
 # 2. Define nodes and their IPs
 declare -A NODES
-NODES=(
-    ["k8s-control-plane-1"]="172.20.0.10"
-    ["k8s-control-plane-2"]="172.20.0.11"
-    ["k8s-control-plane-3"]="172.20.0.12"
-    ["k8s-worker-1"]="172.20.0.13"
-    ["k8s-worker-2"]="172.20.0.14"
-)
+NODES=( ["k8s-control-plane-1"]="172.20.0.10" )
+
+if [ "$CONTROL_PLANE_COUNT" -eq 3 ]; then
+    NODES+=([k8s-control-plane-2]="172.20.0.11" [k8s-control-plane-3]="172.20.0.12")
+fi
+
+NODES+=([k8s-worker-1]="172.20.0.13" [k8s-worker-2]="172.20.0.14")
 
 # 3. Create host directories for persistent storage volumes
 mkdir -p "${WORKSPACE_DIR}/data/control-plane-1"
