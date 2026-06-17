@@ -1,7 +1,7 @@
 {
-  "name": "k8s-interview-backend",
+  "name": "operations-control-panel-backend",
   "version": "1.0.0",
-  "description": "API Backend for Kubernetes DevOps Interview",
+  "description": "API Backend for Operations Control Panel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
