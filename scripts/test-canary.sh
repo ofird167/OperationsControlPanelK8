@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-WORKSPACE_DIR="/home/devops-user/projects/interview10"
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBECONFIG_FILE="${WORKSPACE_DIR}/secrets/k3s.kubeconfig"
 
 if [ ! -f "${KUBECONFIG_FILE}" ]; then

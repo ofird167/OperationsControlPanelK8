@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-WORKSPACE_DIR="/home/devops-user/projects/interview10"
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${WORKSPACE_DIR}/logs"
 LOG_FILE="${LOG_DIR}/destroy.log"
 ENV_FILE="${WORKSPACE_DIR}/secrets/.env"

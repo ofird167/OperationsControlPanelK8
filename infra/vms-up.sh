@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-WORKSPACE_DIR="/home/devops-user/projects/interview10"
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${WORKSPACE_DIR}/secrets/.env"
 
 # Load variables
